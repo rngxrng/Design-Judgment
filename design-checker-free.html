@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Checker — Free</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0e0e0c; --surface: #161614; --surface2: #1e1e1b; --surface3: #252522;
+  --border: rgba(255,255,255,0.06); --border-md: rgba(255,255,255,0.1); --border-strong: rgba(255,255,255,0.16);
+  --text: #f0efe8; --text-muted: #8a8980; --text-faint: #4a4a46;
+  --accent: #d4f050; --accent-dim: rgba(212,240,80,0.1); --accent-border: rgba(212,240,80,0.25);
+  --pass: #4ade80; --pass-bg: rgba(74,222,128,0.08); --pass-border: rgba(74,222,128,0.2);
+  --warn: #fbbf24; --warn-bg: rgba(251,191,36,0.08); --warn-border: rgba(251,191,36,0.2);
+  --fail: #f87171; --fail-bg: rgba(248,113,113,0.08); --fail-border: rgba(248,113,113,0.2);
+  --info: #60a5fa; --info-bg: rgba(96,165,250,0.08); --info-border: rgba(96,165,250,0.2);
+  --purple: #a78bfa; --purple-bg: rgba(167,139,250,0.08); --purple-border: rgba(167,139,250,0.2);
+  --radius: 16px; --radius-sm: 10px; --radius-xs: 6px;
+}
+body { font-family: 'Geist', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+.grain { position: fixed; inset: 0; pointer-events: none; z-index: 100; opacity: 0.025; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"); }
+header { padding: 28px 40px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-mark { width: 34px; height: 34px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.logo-text { font-size: 15px; font-weight: 500; }
+.logo-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+.free-badge { font-family: 'Geist Mono', monospace; font-size: 11px; background: var(--pass-bg); color: var(--pass); border: 1px solid var(--pass-border); padding: 4px 12px; border-radius: 20px; }
+.main { max-width: 1000px; margin: 0 auto; padding: 40px 40px 80px; }
+.hero { text-align: center; padding: 44px 0 48px; }
+.hero-eyebrow { font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+.hero h1 { font-family: 'Instrument Serif', serif; font-size: 48px; font-weight: 400; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 14px; }
+.hero h1 em { font-style: italic; color: var(--accent); }
+.hero p { font-size: 15px; color: var(--text-muted); max-width: 480px; margin: 0 auto 20px; line-height: 1.6; }
+.ind-chips { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; }
+.ind-chip { font-size: 11px; font-family: 'Geist Mono', monospace; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border-md); color: var(--text-muted); }
+.ind-chip.new { background: var(--accent-dim); border-color: var(--accent-border); color: var(--accent); }
+
+.upload-zone { border: 1.5px dashed var(--border-strong); border-radius: var(--radius); padding: 52px 32px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--surface); position: relative; overflow: hidden; margin-bottom: 20px; }
+.upload-zone::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(212,240,80,0.04) 0%, transparent 70%); pointer-events: none; }
+.upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: var(--surface2); }
+.upload-zone.has-file { padding: 0; border-style: solid; border-color: var(--border-strong); }
+.upload-icon { width: 48px; height: 48px; background: var(--surface3); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; border: 1px solid var(--border-md); font-size: 20px; }
+.upload-title { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+.upload-sub { font-size: 13px; color: var(--text-muted); }
+.upload-formats { display: flex; gap: 8px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+.fmt-badge { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--text-faint); border: 1px solid var(--border); padding: 3px 8px; border-radius: 4px; }
+#file-input { display: none; }
+.preview-wrap { position: relative; width: 100%; }
+#preview-img { width: 100%; max-height: 420px; object-fit: contain; border-radius: calc(var(--radius) - 2px); display: block; }
+#preview-canvas { display: none; }
+.preview-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(14,14,12,0.75) 0%, transparent 45%); border-radius: calc(var(--radius) - 2px); display: flex; align-items: flex-end; padding: 18px; gap: 10px; }
+.file-info { flex: 1; }
+.file-name { font-size: 13px; font-weight: 500; }
+.file-meta { font-size: 11px; color: var(--text-muted); font-family: 'Geist Mono', monospace; margin-top: 2px; }
+.change-btn { font-size: 12px; font-weight: 500; color: var(--text-muted); background: rgba(255,255,255,0.08); border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 14px; cursor: pointer; transition: all 0.15s; }
+.change-btn:hover { background: rgba(255,255,255,0.14); color: var(--text); }
+
+.check-btn { width: 100%; padding: 18px 24px; background: var(--accent); color: #0e0e0c; border: none; border-radius: var(--radius-sm); font-family: 'Geist', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 12px; letter-spacing: -0.01em; margin-bottom: 36px; }
+.check-btn:hover { background: #e2f568; transform: translateY(-1px); }
+.check-btn:active { transform: translateY(0); }
+.check-btn:disabled { background: var(--surface3); color: var(--text-faint); cursor: not-allowed; transform: none; }
+.btn-main { font-size: 15px; font-weight: 600; }
+.btn-sub { font-size: 11px; opacity: 0.55; font-weight: 400; }
+
+.progress-wrap { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 20px 24px; margin-bottom: 32px; }
+.progress-wrap.visible { display: block; }
+.progress-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.progress-label { font-size: 13px; color: var(--text-muted); font-family: 'Geist Mono', monospace; }
+.progress-pct { font-size: 13px; color: var(--accent); font-family: 'Geist Mono', monospace; font-weight: 500; }
+.progress-bar-bg { height: 3px; background: var(--surface3); border-radius: 3px; overflow: hidden; margin-bottom: 16px; }
+.progress-bar { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.4s ease; width: 0%; }
+.progress-steps { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+@media(max-width:520px){ .progress-steps { grid-template-columns: 1fr; } }
+.progress-step { font-size: 12px; color: var(--text-faint); display: flex; align-items: center; gap: 7px; }
+.progress-step.done { color: var(--pass); }
+.progress-step.running { color: var(--accent); }
+.step-icon { font-size: 11px; width: 14px; text-align: center; flex-shrink: 0; }
+
+.results-section { display: none; }
+.results-section.visible { display: block; }
+.results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+.results-title { font-family: 'Instrument Serif', serif; font-size: 28px; font-weight: 400; letter-spacing: -0.02em; }
+.score-area { display: flex; align-items: center; gap: 16px; }
+.score-circle { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-direction: column; border: 2px solid var(--border-strong); }
+.score-num { font-family: 'Geist Mono', monospace; font-size: 22px; font-weight: 500; line-height: 1; }
+.score-lbl { font-size: 9px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 2px; }
+.score-breakdown { display: flex; flex-direction: column; gap: 5px; }
+.sbd-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.sbd-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sbd-count { font-family: 'Geist Mono', monospace; font-weight: 500; min-width: 16px; }
+.summary-banner { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px 20px; margin-bottom: 20px; font-size: 14px; line-height: 1.7; color: var(--text-muted); }
+
+.special-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+@media(max-width:600px){ .special-cards { grid-template-columns: 1fr; } }
+.special-card { border-radius: var(--radius-sm); padding: 16px 18px; border: 1px solid; }
+.special-card.ai-card { background: var(--purple-bg); border-color: var(--purple-border); }
+.special-card.text-card { background: var(--info-bg); border-color: var(--info-border); }
+.sc-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.sc-icon { font-size: 18px; }
+.sc-title { font-size: 13px; font-weight: 600; }
+.sc-badge { font-family: 'Geist Mono', monospace; font-size: 10px; padding: 3px 8px; border-radius: 4px; margin-left: auto; font-weight: 600; white-space: nowrap; }
+.ai-low { background: var(--pass-bg); color: var(--pass); border: 1px solid var(--pass-border); }
+.ai-medium { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
+.ai-high { background: var(--fail-bg); color: var(--fail); border: 1px solid var(--fail-border); }
+.sc-meter { height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; margin-bottom: 10px; overflow: hidden; }
+.sc-meter-fill { height: 100%; border-radius: 4px; transition: width 0.7s ease; }
+.sc-desc { font-size: 12px; color: var(--text-muted); line-height: 1.55; }
+.sc-signals { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.sc-signal { font-size: 11px; color: var(--text-faint); display: flex; align-items: center; gap: 6px; }
+.sc-signal.flagged { color: var(--warn); }
+.sc-signal.ok { color: var(--pass); }
+.text-issues { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.text-issue { font-size: 11px; padding: 6px 9px; border-radius: 5px; display: flex; align-items: flex-start; gap: 6px; line-height: 1.5; }
+.text-issue.ti-warn { background: var(--warn-bg); color: var(--warn); }
+.text-issue.ti-info { background: var(--info-bg); color: var(--info); }
+.text-issue.ti-pass { background: var(--pass-bg); color: var(--pass); }
+.text-raw { font-size: 11px; font-family: 'Geist Mono', monospace; color: var(--text-faint); margin-top: 8px; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 5px; max-height: 80px; overflow-y: auto; line-height: 1.5; white-space: pre-wrap; word-break: break-word; border: 1px solid var(--border); }
+
+.section-divider { display: flex; align-items: center; gap: 12px; margin: 24px 0 18px; }
+.section-divider-line { flex: 1; height: 1px; background: var(--border); }
+.section-divider-label { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); white-space: nowrap; }
+
+.issues-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+.issue-card { background: var(--surface); border-radius: var(--radius-sm); border: 1px solid var(--border); overflow: hidden; animation: slideup 0.3s ease both; }
+@keyframes slideup { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+.issue-header { display: flex; align-items: center; gap: 12px; padding: 14px 18px; cursor: pointer; transition: background 0.15s; }
+.issue-header:hover { background: var(--surface2); }
+.sev-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sev-critical { background: var(--fail); box-shadow: 0 0 8px var(--fail); }
+.sev-warning { background: var(--warn); }
+.sev-info { background: var(--info); }
+.sev-pass { background: var(--pass); }
+.cat-badge { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; flex-shrink: 0; }
+.cat-contrast { background: var(--fail-bg); color: var(--fail); border: 1px solid var(--fail-border); }
+.cat-color { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-border); }
+.cat-spacing { background: var(--info-bg); color: var(--info); border: 1px solid var(--info-border); }
+.cat-hierarchy { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
+.cat-balance { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
+.cat-pass { background: var(--pass-bg); color: var(--pass); border: 1px solid var(--pass-border); }
+.issue-title { font-size: 14px; font-weight: 500; flex: 1; }
+.issue-chevron { color: var(--text-faint); font-size: 11px; transition: transform 0.2s; flex-shrink: 0; }
+.issue-card.open .issue-chevron { transform: rotate(180deg); }
+.issue-body { display: none; padding: 0 18px 16px; border-top: 1px solid var(--border); }
+.issue-card.open .issue-body { display: block; }
+.issue-desc { font-size: 13px; color: var(--text-muted); line-height: 1.65; margin: 14px 0 12px; }
+.fix-box { background: var(--surface2); border-radius: var(--radius-xs); padding: 12px 14px; border-left: 2px solid var(--accent); }
+.fix-label { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+.fix-text { font-size: 13px; color: var(--text); line-height: 1.55; }
+.data-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.data-chip { font-family: 'Geist Mono', monospace; font-size: 11px; background: var(--surface3); border: 1px solid var(--border-md); padding: 3px 10px; border-radius: 4px; color: var(--text-muted); }
+.disclaimer { font-size: 11px; color: var(--text-faint); text-align: center; margin-bottom: 16px; line-height: 1.6; padding: 0 20px; }
+.recheck-btn { width: 100%; padding: 14px; background: transparent; color: var(--text-muted); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: 'Geist', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+.recheck-btn:hover { background: var(--surface); color: var(--text); }
+.error-box { display: none; background: var(--fail-bg); border: 1px solid var(--fail-border); border-radius: var(--radius-sm); padding: 14px 18px; font-size: 14px; color: var(--fail); margin-bottom: 20px; }
+.error-box.visible { display: block; }
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<canvas id="preview-canvas"></canvas>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">◈</div>
+    <div>
+      <div class="logo-text">Design Checker</div>
+      <div class="logo-sub">Standard Auditor v2</div>
+    </div>
+  </div>
+  <div class="free-badge">100% Gratis</div>
+</header>
+
+<div class="main">
+  <div class="hero">
+    <div class="hero-eyebrow">No API · No Cost · No Server</div>
+    <h1>Audit desain kamu<br><em>sekarang juga</em></h1>
+    <p>Upload gambar desain — 1 klik, 9 indikator langsung dicek sekaligus.</p>
+    <div class="ind-chips">
+      <span class="ind-chip">Kontras WCAG</span>
+      <span class="ind-chip">Palet Warna</span>
+      <span class="ind-chip">White Space</span>
+      <span class="ind-chip">Visual Balance</span>
+      <span class="ind-chip">Kebersihan Visual</span>
+      <span class="ind-chip">Format & Dimensi</span>
+      <span class="ind-chip new">🤖 Deteksi AI Image</span>
+      <span class="ind-chip new">📝 Cek Teks OCR</span>
+    </div>
+  </div>
+
+  <div class="upload-zone" id="upload-zone">
+    <input type="file" id="file-input" accept="image/*">
+    <div id="upload-placeholder">
+      <div class="upload-icon">⬆</div>
+      <div class="upload-title">Drop file desain di sini</div>
+      <div class="upload-sub">atau klik untuk browse</div>
+      <div class="upload-formats">
+        <span class="fmt-badge">PNG</span><span class="fmt-badge">JPG</span>
+        <span class="fmt-badge">WEBP</span><span class="fmt-badge">GIF</span>
+      </div>
+    </div>
+    <div id="preview-wrap" class="preview-wrap" style="display:none">
+      <img id="preview-img" alt="Preview">
+      <div class="preview-overlay">
+        <div class="file-info">
+          <div class="file-name" id="file-name-display"></div>
+          <div class="file-meta" id="file-meta-display"></div>
+        </div>
+        <button class="change-btn" id="change-btn">Ganti file</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="error-box" id="error-box"></div>
+
+  <button class="check-btn" id="check-btn" disabled>
+    <div>
+      <div class="btn-main">◈ &nbsp; Analisis Desain Sekarang</div>
+      <div class="btn-sub">kontras · warna · balance · AI detector · cek teks OCR</div>
+    </div>
+  </button>
+
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-top">
+      <div class="progress-label" id="progress-label">Memulai...</div>
+      <div class="progress-pct" id="progress-pct">0%</div>
+    </div>
+    <div class="progress-bar-bg"><div class="progress-bar" id="progress-bar"></div></div>
+    <div class="progress-steps" id="progress-steps"></div>
+  </div>
+
+  <div class="results-section" id="results-section">
+    <div class="results-header">
+      <div class="results-title">Hasil Audit</div>
+      <div class="score-area">
+        <div class="score-breakdown" id="score-breakdown"></div>
+        <div class="score-circle" id="score-circle">
+          <div class="score-num" id="score-num">—</div>
+          <div class="score-lbl">score</div>
+        </div>
+      </div>
+    </div>
+    <div class="summary-banner" id="summary-banner"></div>
+
+    <div class="special-cards">
+      <div class="special-card ai-card">
+        <div class="sc-header">
+          <span class="sc-icon">🤖</span>
+          <span class="sc-title" style="color:var(--purple)">Deteksi AI Image</span>
+          <span class="sc-badge" id="ai-badge">—</span>
+        </div>
+        <div class="sc-meter"><div class="sc-meter-fill" id="ai-meter" style="width:0%"></div></div>
+        <div class="sc-desc" id="ai-desc"></div>
+        <div class="sc-signals" id="ai-signals"></div>
+      </div>
+      <div class="special-card text-card">
+        <div class="sc-header">
+          <span class="sc-icon">📝</span>
+          <span class="sc-title" style="color:var(--info)">Cek Teks (OCR)</span>
+          <span class="sc-badge" id="text-badge">—</span>
+        </div>
+        <div class="sc-desc" id="text-desc"></div>
+        <div class="text-issues" id="text-issues"></div>
+        <div class="text-raw" id="text-raw" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="section-divider">
+      <div class="section-divider-line"></div>
+      <div class="section-divider-label">Temuan Visual</div>
+      <div class="section-divider-line"></div>
+    </div>
+    <div class="issues-list" id="issues-list"></div>
+    <div class="disclaimer">⚠ Deteksi AI image adalah indikator probabilistik — bukan deteksi definitif. Akurasi OCR bergantung pada kualitas, ukuran, dan jenis font dalam gambar.</div>
+    <button class="recheck-btn" id="recheck-btn">↺ &nbsp; Analisis file lain</button>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const uploadZone=$('upload-zone'),fileInput=$('file-input'),checkBtn=$('check-btn');
+const progressWrap=$('progress-wrap'),progressBar=$('progress-bar'),progressLabel=$('progress-label'),progressPct=$('progress-pct'),progressSteps=$('progress-steps');
+const resultsSection=$('results-section'),errorBox=$('error-box');
+const canvas=$('preview-canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
+let imgEl=null,currentFile=null;
+
+uploadZone.addEventListener('click',e=>{if(e.target.id==='change-btn')return;fileInput.click();});
+$('change-btn').addEventListener('click',e=>{e.stopPropagation();fileInput.click();});
+uploadZone.addEventListener('dragover',e=>{e.preventDefault();uploadZone.classList.add('dragover');});
+uploadZone.addEventListener('dragleave',()=>uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop',e=>{e.preventDefault();uploadZone.classList.remove('dragover');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+fileInput.addEventListener('change',e=>{if(e.target.files[0])handleFile(e.target.files[0]);});
+
+function handleFile(file){
+  if(!file.type.startsWith('image/')){showError('Hanya file gambar yang didukung.');return;}
+  currentFile=file;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      imgEl=img;
+      $('preview-img').src=e.target.result;
+      $('file-name-display').textContent=file.name;
+      $('file-meta-display').textContent=`${(file.size/1024).toFixed(0)} KB · ${img.width}×${img.height}px`;
+      $('upload-placeholder').style.display='none';
+      $('preview-wrap').style.display='block';
+      uploadZone.classList.add('has-file');
+      hideError(); checkBtn.disabled=false; resultsSection.classList.remove('visible');
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function showError(msg){errorBox.textContent=msg;errorBox.classList.add('visible');}
+function hideError(){errorBox.classList.remove('visible');}
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+
+const STEPS=[
+  {id:'pixel',l:'Membaca pixel data'},
+  {id:'palette',l:'Analisis palet warna'},
+  {id:'contrast',l:'Kontras & brightness'},
+  {id:'balance',l:'Visual balance & simetri'},
+  {id:'noise',l:'Kebersihan visual'},
+  {id:'edges',l:'White space & margin'},
+  {id:'ai',l:'Deteksi AI image'},
+  {id:'ocr',l:'OCR — membaca teks'},
+  {id:'textchk',l:'Analisis kualitas teks'},
+];
+
+function buildSteps(){progressSteps.innerHTML=STEPS.map(s=>`<div class="progress-step" id="step-${s.id}"><span class="step-icon">○</span>${s.l}</div>`).join('');}
+function stepDone(id){const el=$('step-'+id);if(el){el.className='progress-step done';el.querySelector('.step-icon').textContent='✓';}}
+function stepRun(id){const el=$('step-'+id);if(el){el.className='progress-step running';el.querySelector('.step-icon').textContent='◌';}}
+function setP(pct,label){progressBar.style.width=pct+'%';progressPct.textContent=pct+'%';progressLabel.textContent=label;}
+
+checkBtn.addEventListener('click',async()=>{
+  if(!imgEl)return;
+  checkBtn.disabled=true;
+  buildSteps();
+  progressWrap.classList.add('visible');
+  resultsSection.classList.remove('visible');
+  hideError();
+
+  canvas.width=imgEl.naturalWidth; canvas.height=imgEl.naturalHeight;
+  ctx.drawImage(imgEl,0,0);
+  const W=canvas.width,H=canvas.height,data=ctx.getImageData(0,0,W,H).data;
+  const issues=[];
+
+  setP(5,'Membaca pixel...');stepRun('pixel');await delay(150);stepDone('pixel');
+  setP(16,'Analisis palet...');stepRun('palette');await delay(200);
+  const palRes=analyzePalette(data,W,H);issues.push(...palRes.issues);stepDone('palette');
+  setP(28,'Kontras...');stepRun('contrast');await delay(200);
+  issues.push(...analyzeContrast(data,W,H));stepDone('contrast');
+  setP(40,'Balance...');stepRun('balance');await delay(200);
+  issues.push(...analyzeBalance(data,W,H));stepDone('balance');
+  setP(52,'Noise...');stepRun('noise');await delay(200);
+  issues.push(...analyzeNoise(data,W,H));stepDone('noise');
+  setP(62,'Edges...');stepRun('edges');await delay(200);
+  issues.push(...analyzeEdges(data,W,H));stepDone('edges');
+  setP(72,'AI detection...');stepRun('ai');await delay(300);
+  const aiRes=detectAI(data,W,H);stepDone('ai');
+  setP(82,'OCR...');stepRun('ocr');
+  const ocrRes=await runOCR($('preview-img'));stepDone('ocr');
+  setP(94,'Text analysis...');stepRun('textchk');await delay(200);
+  const txtRes=analyzeText(ocrRes);stepDone('textchk');
+  setP(100,'Selesai!');await delay(300);
+
+  progressWrap.classList.remove('visible');
+  renderResults(issues,palRes.dominantColors,aiRes,txtRes);
+  checkBtn.disabled=false;
+});
+
+// ── Helpers ──────────────────────────────────────────
+function lum(r,g,b){const l=v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)};return .2126*l(r)+.7152*l(g)+.0722*l(b);}
+function cr(l1,l2){const a=Math.max(l1,l2),b=Math.min(l1,l2);return(a+.05)/(b+.05);}
+function hsl(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h,s,li=(mx+mn)/2;if(mx===mn){h=s=0;}else{const d=mx-mn;s=li>.5?d/(2-mx-mn):d/(mx+mn);switch(mx){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;case b:h=((r-g)/d+4)/6;}}return[h*360,s*100,li*100];}
+function step(W,H,n){return Math.max(1,Math.floor(Math.sqrt(W*H)/n));}
+function hex(r,g,b){return'#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase();}
+
+// ── Palette ──────────────────────────────────────────
+function analyzePalette(data,W,H){
+  const issues=[],s=step(W,H,120),bk={};
+  for(let y=0;y<H;y+=s)for(let x=0;x<W;x+=s){const i=(y*W+x)*4,br=Math.round(data[i]/32)*32,bg=Math.round(data[i+1]/32)*32,bb=Math.round(data[i+2]/32)*32,k=`${br},${bg},${bb}`;if(!bk[k])bk[k]={r:br,g:bg,b:bb,c:0};bk[k].c++;}
+  const top=Object.values(bk).sort((a,b)=>b.c-a.c).slice(0,8);
+  const dom=top.map(c=>hex(c.r,c.g,c.b));
+  const hues=new Set(),sats=[];
+  top.forEach(c=>{const[h,sat]=hsl(c.r,c.g,c.b);if(sat>15)hues.add(Math.round(h/30)*30);sats.push(sat);});
+  const avgS=sats.reduce((a,b)=>a+b,0)/sats.length;const hc=hues.size;
+  if(hc>6)issues.push({severity:'warning',category:'color',cat_label:'Palet Warna',title:'Terlalu banyak variasi warna',desc:`Terdeteksi ~${hc} kelompok hue. Terlalu banyak warna membuat desain tidak kohesif.`,fix:'Batasi palet 2–4 warna utama + variasi shade. Gunakan color wheel untuk palet harmonis.',data:[`${hc} hue`,`Sat: ${avgS.toFixed(0)}%`]});
+  else issues.push({severity:'pass',category:'color',cat_label:'Palet Warna',title:'Palet warna terkontrol',desc:`Hanya ${hc} kelompok hue — disiplin dan konsisten.`,fix:'Pertahankan. Pastikan setiap warna punya peran jelas.',data:[`${hc} hue`]});
+  if(avgS>75)issues.push({severity:'warning',category:'color',cat_label:'Saturasi',title:'Saturasi terlalu tinggi',desc:`Rata-rata ${avgS.toFixed(0)}% — melelahkan mata jika dipakai di area besar.`,fix:'Turunkan 10–20%. Simpan warna saturasi tinggi untuk focal point saja.',data:[`Sat: ${avgS.toFixed(0)}%`]});
+  else if(avgS<15)issues.push({severity:'info',category:'color',cat_label:'Saturasi',title:'Desain hampir grayscale',desc:`Saturasi rata-rata ${avgS.toFixed(0)}% — sangat netral.`,fix:'Jika sengaja monokromatik, perkuat hierarki via tone. Kalau tidak, tambah 1 accent color.',data:[`Sat: ${avgS.toFixed(0)}%`]});
+  return{issues,dominantColors:dom};
+}
+
+// ── Contrast ─────────────────────────────────────────
+function analyzeContrast(data,W,H){
+  const issues=[],s=step(W,H,100),lums=[];
+  for(let y=0;y<H;y+=s)for(let x=0;x<W;x+=s){const i=(y*W+x)*4;lums.push(lum(data[i],data[i+1],data[i+2]));}
+  lums.sort((a,b)=>a-b);const p10=lums[Math.floor(lums.length*.1)],p90=lums[Math.floor(lums.length*.9)];
+  const gc=cr(p90,p10),avg=lums.reduce((a,b)=>a+b)/lums.length;
+  if(gc<3.5)issues.push({severity:'critical',category:'contrast',cat_label:'Kontras',title:'Kontras sangat rendah',desc:`Kontras global ${gc.toFixed(1)}:1 — di bawah WCAG AA (4.5:1). Konten berisiko tidak terbaca.`,fix:'Naikkan kontras teks vs background. Target 4.5:1 body text, 3:1 heading besar.',data:[`${gc.toFixed(1)}:1`,`Min: 4.5:1`]});
+  else if(gc<4.5)issues.push({severity:'warning',category:'contrast',cat_label:'Kontras',title:'Kontras mendekati batas WCAG',desc:`Kontras ${gc.toFixed(1)}:1 — lolos teks besar tapi belum AA untuk teks normal.`,fix:'Cek teks body manual. Naikkan kontras 10–15% terutama teks kecil.',data:[`${gc.toFixed(1)}:1`]});
+  else issues.push({severity:'pass',category:'contrast',cat_label:'Kontras',title:'Kontras memenuhi WCAG AA ✓',desc:`Kontras global ${gc.toFixed(1)}:1 — standar aksesibilitas terpenuhi.`,fix:'Untuk AAA, targetkan 7:1 pada teks isi penting.',data:[`${gc.toFixed(1)}:1`,'WCAG AA ✓']});
+  if(avg>0.78)issues.push({severity:'info',category:'contrast',cat_label:'Kecerahan',title:'Desain sangat terang',desc:`Luminans rata-rata ${(avg*100).toFixed(0)}%.`,fix:'Gunakan off-white (#F5F5F5). Tambah elemen gelap sebagai penyeimbang.',data:[`Lum: ${(avg*100).toFixed(0)}%`]});
+  else if(avg<0.08)issues.push({severity:'info',category:'contrast',cat_label:'Kecerahan',title:'Desain sangat gelap',desc:`Luminans ${(avg*100).toFixed(0)}% — dominan gelap.`,fix:'Pastikan teks terang cukup kontras. Tambahkan highlight pada elemen penting.',data:[`Lum: ${(avg*100).toFixed(0)}%`]});
+  return issues;
+}
+
+// ── Balance ───────────────────────────────────────────
+function analyzeBalance(data,W,H){
+  const issues=[],s=step(W,H,150);
+  let lL=0,lR=0,cL=0,cR=0;
+  for(let y=0;y<H;y+=s)for(let x=0;x<W;x+=s){const i=(y*W+x)*4,l=lum(data[i],data[i+1],data[i+2]);if(x<W/2){lL+=l;cL++;}else{lR+=l;cR++;}}
+  const diff=Math.abs(lL/cL-lR/cR);
+  if(diff>0.22)issues.push({severity:'info',category:'balance',cat_label:'Simetri',title:'Asimetri horizontal terdeteksi',desc:`Perbedaan kecerahan kiri-kanan ${(diff*100).toFixed(1)}%.`,fix:'Tambahkan counter-weight di sisi kosong, atau pastikan asimetri intentional dengan focal point jelas.',data:[`Selisih: ${(diff*100).toFixed(1)}%`]});
+  const gx=4,gy=4,cW=Math.floor(W/gx),cH=Math.floor(H/gy),cells=[];
+  for(let gy2=0;gy2<gy;gy2++)for(let gx2=0;gx2<gx;gx2++){let sm=0,c=0,st=Math.max(1,Math.floor(cW*cH/200));for(let y=gy2*cH;y<(gy2+1)*cH;y+=st)for(let x=gx2*cW;x<(gx2+1)*cW;x+=st){const i=(y*W+x)*4;sm+=lum(data[i],data[i+1],data[i+2]);c++;}cells.push(sm/c);}
+  const avgC=cells.reduce((a,b)=>a+b)/cells.length,sd=Math.sqrt(cells.reduce((a,b)=>a+Math.pow(b-avgC,2),0)/cells.length);
+  if(sd>0.28)issues.push({severity:'warning',category:'balance',cat_label:'Visual Balance',title:'Distribusi visual tidak merata',desc:`Std dev kecerahan ${sd.toFixed(2)} — ada zona yang terlalu dominan.`,fix:'Distribusikan elemen berat lebih merata, atau gunakan ketidakseimbangan secara intentional.',data:[`StdDev: ${sd.toFixed(3)}`]});
+  else issues.push({severity:'pass',category:'balance',cat_label:'Visual Balance',title:'Distribusi visual seimbang ✓',desc:`Kecerahan merata (std dev ${sd.toFixed(2)}).`,fix:'Distribusi sudah baik.',data:[`StdDev: ${sd.toFixed(3)}`]});
+  return issues;
+}
+
+// ── Noise ─────────────────────────────────────────────
+function analyzeNoise(data,W,H){
+  const issues=[],s=step(W,H,100);let nc=0,tc=0;
+  for(let y=s;y<H-s;y+=s)for(let x=s;x<W-s;x+=s){const i=(y*W+x)*4,c=lum(data[i],data[i+1],data[i+2]);const nb=[lum(data[((y-s)*W+x)*4],data[((y-s)*W+x)*4+1],data[((y-s)*W+x)*4+2]),lum(data[((y+s)*W+x)*4],data[((y+s)*W+x)*4+1],data[((y+s)*W+x)*4+2]),lum(data[(y*W+x-s)*4],data[(y*W+x-s)*4+1],data[(y*W+x-s)*4+2]),lum(data[(y*W+x+s)*4],data[(y*W+x+s)*4+1],data[(y*W+x+s)*4+2])];const avg=nb.reduce((a,b)=>a+b)/4;if(Math.abs(c-avg)>0.18)nc++;tc++;}
+  const pct=(nc/tc)*100;
+  if(pct>35)issues.push({severity:'warning',category:'hierarchy',cat_label:'Kebersihan Visual',title:'Visual terlalu ramai',desc:`${pct.toFixed(0)}% area memiliki transisi tajam — desain terasa sibuk.`,fix:'Kurangi elemen dekoratif. Berikan breathing room yang cukup.',data:[`Kepadatan: ${pct.toFixed(0)}%`]});
+  else if(pct<8)issues.push({severity:'pass',category:'hierarchy',cat_label:'Kebersihan Visual',title:'Desain bersih ✓',desc:`Kepadatan ${pct.toFixed(0)}% — clean dan terkontrol.`,fix:'Pertahankan kesederhanaan ini.',data:[`Kepadatan: ${pct.toFixed(0)}%`]});
+  else issues.push({severity:'pass',category:'hierarchy',cat_label:'Kebersihan Visual',title:'Kepadatan visual wajar ✓',desc:`Kepadatan ${pct.toFixed(0)}% — seimbang.`,fix:'Pastikan elemen tidak saling bersaing perhatian.',data:[`Kepadatan: ${pct.toFixed(0)}%`]});
+  return issues;
+}
+
+// ── Edges ─────────────────────────────────────────────
+function analyzeEdges(data,W,H){
+  const issues=[],s=step(W,H,200),border=Math.floor(Math.min(W,H)*.08);
+  let bE=0,bT=0,cE=0,cT=0;
+  for(let y=s;y<H-s;y+=s)for(let x=s;x<W-s;x+=s){const i=(y*W+x)*4,l=lum(data[i],data[i+1],data[i+2]),lr=lum(data[(y*W+x+s)*4],data[(y*W+x+s)*4+1],data[(y*W+x+s)*4+2]),lb=lum(data[((y+s)*W+x)*4],data[((y+s)*W+x)*4+1],data[((y+s)*W+x)*4+2]),isE=Math.abs(l-lr)>.12||Math.abs(l-lb)>.12,inB=x<border||x>W-border||y<border||y>H-border;if(inB){if(isE)bE++;bT++;}else{if(isE)cE++;cT++;}}
+  const bd=bT>0?(bE/bT)*100:0,cd=cT>0?(cE/cT)*100:0;
+  if(bd>30)issues.push({severity:'warning',category:'spacing',cat_label:'White Space',title:'Konten terlalu mepet ke tepi',desc:`Border edge density ${bd.toFixed(0)}% — elemen terlalu dekat tepi.`,fix:'Tambahkan padding konsisten: 16–24px digital, 10mm print. Jaga safe zone.',data:[`Border: ${bd.toFixed(0)}%`,`Center: ${cd.toFixed(0)}%`]});
+  else issues.push({severity:'pass',category:'spacing',cat_label:'White Space',title:'Margin & white space baik ✓',desc:`Margin bersih (${bd.toFixed(0)}% border density).`,fix:'Pertahankan. Pastikan padding konsisten semua sisi.',data:[`Border: ${bd.toFixed(0)}%`]});
+  const ar=W/H,arl=Math.abs(ar-1)<.05?'1:1 Square':Math.abs(ar-16/9)<.1?'16:9':Math.abs(ar-9/16)<.1?'9:16':Math.abs(ar-4/3)<.08?'4:3':`Custom ${W}×${H}`;
+  const plat={1:'Instagram Feed/Avatar',1.78:'YouTube/Presentasi/Banner',0.56:'Story/Reels/TikTok',1.33:'Display 4:3'};
+  const ca=Object.keys(plat).reduce((p,c)=>Math.abs(c-ar)<Math.abs(p-ar)?c:p);
+  issues.push({severity:'info',category:'spacing',cat_label:'Format',title:`Format: ${arl}`,desc:`${W}×${H}px — cocok untuk ${plat[ca]||'platform kustom'}.`,fix:'Pastikan resolusi cukup: 300dpi untuk print, sesuai spec platform untuk digital.',data:[`${W}×${H}px`,arl]});
+  return issues;
+}
+
+// ── AI Detection ──────────────────────────────────────
+function detectAI(data,W,H){
+  const signals=[];let score=0,s=step(W,H,180);
+  // 1. Gradient smoothness
+  let sm=0,sh=0,tot=0;
+  for(let y=s;y<H-s;y+=s*2)for(let x=s;x<W-s;x+=s*2){const i=(y*W+x)*4,ir=(y*W+x+s)*4,d=Math.abs(data[i]-data[ir])+Math.abs(data[i+1]-data[ir+1])+Math.abs(data[i+2]-data[ir+2]);if(d<8)sm++;else if(d>40)sh++;tot++;}
+  const smR=sm/tot;
+  if(smR>.72){score+=25;signals.push({text:`Gradien sangat halus (${(smR*100).toFixed(0)}%)`,flagged:true});}
+  else signals.push({text:`Gradien normal (${(smR*100).toFixed(0)}% smooth)`,flagged:false});
+  // 2. Patch color uniformity
+  const ps=Math.max(8,Math.floor(Math.min(W,H)/40)),patches=[];
+  for(let py=0;py<H;py+=ps*3)for(let px=0;px<W;px+=ps*3){let rS=0,gS=0,bS=0,c=0;for(let dy=0;dy<ps&&py+dy<H;dy++)for(let dx=0;dx<ps&&px+dx<W;dx++){const i=((py+dy)*W+(px+dx))*4;rS+=data[i];gS+=data[i+1];bS+=data[i+2];c++;}if(c>0)patches.push([rS/c,gS/c,bS/c]);}
+  const aR=patches.reduce((a,p)=>a+p[0],0)/patches.length,aG=patches.reduce((a,p)=>a+p[1],0)/patches.length;
+  const pv=patches.reduce((a,p)=>a+Math.pow(p[0]-aR,2)+Math.pow(p[1]-aG,2),0)/patches.length;
+  if(pv<120&&smR>.6){score+=20;signals.push({text:`Variasi warna antar area rendah (${pv.toFixed(0)})`,flagged:true});}
+  else signals.push({text:`Variasi warna normal (${pv.toFixed(0)})`,flagged:false});
+  // 3. HF noise
+  let hf=0,hft=0;
+  for(let y=2;y<H-2;y+=s*2)for(let x=2;x<W-2;x+=s*2){const i=(y*W+x)*4,nb=[data[((y-1)*W+x)*4],data[((y+1)*W+x)*4],data[(y*W+x-1)*4],data[(y*W+x+1)*4]],avg=nb.reduce((a,b)=>a+b)/4,d=Math.abs(data[i]-avg);if(d>3&&d<15)hf++;hft++;}
+  const hfR=hf/hft;
+  if(hfR>.38){score+=15;signals.push({text:`Noise HF pattern khas AI (${(hfR*100).toFixed(0)}%)`,flagged:true});}
+  else signals.push({text:`Pola noise normal (${(hfR*100).toFixed(0)}%)`,flagged:false});
+  // 4. Symmetry
+  let sd=0,sc2=0,ss=Math.max(2,Math.floor(Math.sqrt(W*H)/100));
+  for(let y=0;y<H;y+=ss)for(let x=0;x<W/2;x+=ss){const iL=(y*W+x)*4,iR=(y*W+(W-1-x))*4;sd+=Math.abs(data[iL]-data[iR])+Math.abs(data[iL+1]-data[iR+1])+Math.abs(data[iL+2]-data[iR+2]);sc2++;}
+  const sym=sd/(sc2*3*255);
+  if(sym<.06){score+=20;signals.push({text:`Simetri sangat tinggi (diff ${(sym*100).toFixed(1)}%)`,flagged:true});}
+  else signals.push({text:`Simetri normal (diff ${(sym*100).toFixed(1)}%)`,flagged:false});
+  // 5. Saturation uniformity
+  const ss2=[];
+  for(let y=0;y<H;y+=s*3)for(let x=0;x<W;x+=s*3){const i=(y*W+x)*4,r=data[i]/255,g=data[i+1]/255,b=data[i+2]/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),li=(mx+mn)/2,sat=mx===mn?0:li>.5?(mx-mn)/(2-mx-mn):(mx-mn)/(mx+mn);ss2.push(sat);}
+  const aS=ss2.reduce((a,b)=>a+b)/ss2.length,sv=ss2.reduce((a,b)=>a+Math.pow(b-aS,2),0)/ss2.length;
+  if(sv<.012&&aS>.15){score+=20;signals.push({text:`Saturasi terlalu seragam (var ${sv.toFixed(4)})`,flagged:true});}
+  else signals.push({text:`Variasi saturasi alami (var ${sv.toFixed(4)})`,flagged:false});
+
+  score=Math.min(100,score);
+  const level=score>=60?'high':score>=30?'medium':'low';
+  return{score,level,label:{low:'Bukan AI / Natural',medium:'Indikasi Sedang',high:'Kemungkinan AI'}[level],signals};
+}
+
+// ── OCR ───────────────────────────────────────────────
+async function runOCR(imgEl){
+  try{
+    const worker=await Tesseract.createWorker('ind+eng');
+    const res=await worker.recognize(imgEl);
+    await worker.terminate();
+    return{text:res.data.text,confidence:res.data.confidence};
+  }catch(e){return{text:'',confidence:0,error:e.message};}
+}
+
+// ── Text analysis ─────────────────────────────────────
+function analyzeText(ocr){
+  const issues=[],raw=(ocr.text||'').trim(),conf=ocr.confidence||0;
+  if(!raw||raw.length<3)return{issues:[{type:'info',label:'Teks tidak terdeteksi',msg:'Tidak ada teks terbaca. Font terlalu kecil, dekoratif, atau resolusi rendah.'}],raw:'',confidence:conf};
+  const words=raw.split(/\s+/).filter(w=>w.length>1);
+  const sentences=raw.split(/[.!?]+/).map(s=>s.trim()).filter(s=>s.length>5);
+  // Placeholder
+  if(/lorem|ipsum|placeholder|dummy|sample text|teks di sini|tulis di sini/i.test(raw))
+    issues.push({type:'warn',label:'Teks placeholder terdeteksi',msg:'Lorem Ipsum atau teks dummy ditemukan. Ganti dengan konten final sebelum publish.'});
+  // Long sentences
+  const longS=sentences.filter(s=>s.split(' ').length>20);
+  if(longS.length>0)issues.push({type:'warn',label:'Kalimat terlalu panjang',msg:`${longS.length} kalimat melebihi 20 kata. Untuk desain, gunakan max 10–15 kata per kalimat.`});
+  // Double punct/space
+  const dblPunct=(raw.match(/[!?.]{2,}/g)||[]).length,dblSpace=(raw.match(/  +/g)||[]).length;
+  if(dblPunct>1||dblSpace>2)issues.push({type:'warn',label:'Tanda baca / spasi bermasalah',msg:`${dblPunct} tanda baca ganda, ${dblSpace} double spasi. Periksa konsistensi pengetikan.`});
+  // Inconsistent capitalization
+  const aCaps=words.filter(w=>w.length>2&&w===w.toUpperCase()&&/[A-Z]/.test(w));
+  const mix=words.filter(w=>w.length>2&&w!==w.toUpperCase()&&w!==w.toLowerCase());
+  if(aCaps.length>3&&mix.length>3&&aCaps.length>mix.length*.5)
+    issues.push({type:'warn',label:'Kapitalisasi tidak konsisten',msg:'Campuran ALL CAPS dan mixed case. Pilih satu gaya: title case, sentence case, atau ALL CAPS hanya untuk heading.'});
+  // OCR fragments
+  const frags=words.filter(w=>w.length===1&&/[a-z]/i.test(w));
+  if(frags.length>words.length*.2)issues.push({type:'info',label:'Kemungkinan teks terpotong',msg:'Banyak fragmen huruf tunggal — bisa font dekoratif atau teks terpotong elemen lain.'});
+  // Pass
+  if(issues.filter(i=>i.type==='warn').length===0)
+    issues.push({type:'pass',label:'Teks terlihat baik ✓',msg:`${words.length} kata terdeteksi. Tidak ada masalah besar pada struktur kalimat dan penulisan.`});
+  return{issues,raw:raw.slice(0,400),confidence:conf};
+}
+
+// ── Render ────────────────────────────────────────────
+function renderResults(issues,dominantColors,aiRes,txtRes){
+  const counts={critical:0,warning:0,info:0,pass:0};
+  issues.forEach(i=>counts[i.severity]++);
+  let score=Math.max(0,Math.min(100,100-counts.critical*18-counts.warning*8-counts.info*2));
+  const sc=score>=80?'var(--pass)':score>=60?'var(--warn)':'var(--fail)';
+  $('score-num').textContent=score; $('score-num').style.color=sc;
+  $('score-circle').style.borderColor=sc;
+  $('score-breakdown').innerHTML=[{k:'critical',l:'Critical',c:'var(--fail)'},{k:'warning',l:'Warning',c:'var(--warn)'},{k:'info',l:'Info',c:'var(--info)'},{k:'pass',l:'Pass',c:'var(--pass)'}].map(s=>`<div class="sbd-row"><div class="sbd-dot" style="background:${s.c}"></div><span style="font-size:12px;color:var(--text-muted)">${s.l}</span><span class="sbd-count" style="color:${s.c}">${counts[s.k]}</span></div>`).join('');
+  const sm=score>=90?'Desain berkualitas tinggi — hanya perlu sedikit penyempurnaan.':score>=75?'Desain cukup baik. Perbaiki warning untuk meningkatkan kualitas.':score>=60?'Ada masalah signifikan. Perhatikan temuan critical.':'Desain membutuhkan perbaikan serius sebelum digunakan.';
+  $('summary-banner').innerHTML=`<strong>Score ${score}/100</strong> — ${sm}<br><br><strong>Palet dominan:</strong> <span style="display:inline-flex;gap:5px;margin-left:8px;vertical-align:middle">${dominantColors.slice(0,6).map(c=>`<span title="${c}" style="display:inline-block;width:18px;height:18px;background:${c};border-radius:4px;border:1px solid rgba(255,255,255,0.1)"></span>`).join('')}</span>`;
+
+  // AI card
+  const aiColor=aiRes.level==='high'?'var(--fail)':aiRes.level==='medium'?'var(--warn)':'var(--pass)';
+  $('ai-badge').textContent=aiRes.label; $('ai-badge').className=`sc-badge ai-${aiRes.level}`;
+  $('ai-meter').style.width=aiRes.score+'%'; $('ai-meter').style.background=aiColor;
+  $('ai-desc').textContent=`Skor indikasi AI: ${aiRes.score}/100. ${aiRes.level==='high'?'Beberapa pola visual khas AI image terdeteksi.':aiRes.level==='medium'?'Sebagian pola terdeteksi — tidak konklusif.':'Pola visual terlihat natural.'}`;
+  $('ai-signals').innerHTML=aiRes.signals.map(s=>`<div class="sc-signal ${s.flagged?'flagged':'ok'}"><span>${s.flagged?'⚑':'✓'}</span>${s.text}</div>`).join('');
+
+  // Text card
+  const hasW=txtRes.issues.some(i=>i.type==='warn');
+  const tb=$('text-badge');
+  if(!txtRes.raw){tb.textContent='Tidak terdeteksi';tb.style.cssText='background:var(--surface3);color:var(--text-faint);border:1px solid var(--border)';}
+  else if(hasW){tb.textContent='Ada catatan';tb.style.cssText='background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-border)';}
+  else{tb.textContent='Teks OK ✓';tb.style.cssText='background:var(--pass-bg);color:var(--pass);border:1px solid var(--pass-border)';}
+  $('text-desc').textContent=txtRes.raw?`${txtRes.raw.split(/\s+/).filter(w=>w.length>1).length} kata terdeteksi${txtRes.confidence>0?' (akurasi OCR: '+txtRes.confidence.toFixed(0)+'%)':''}.`:'Tidak ada teks terbaca dari gambar ini.';
+  $('text-issues').innerHTML=txtRes.issues.map(i=>`<div class="text-issue ti-${i.type}"><span>${i.type==='pass'?'✓':i.type==='warn'?'⚑':'ℹ'}</span><div><strong>${i.label}</strong> — ${i.msg}</div></div>`).join('');
+  if(txtRes.raw){$('text-raw').style.display='block';$('text-raw').textContent=txtRes.raw+(txtRes.raw.length>=400?'…':'');}
+
+  // Visual issues
+  const catMap={contrast:'cat-contrast',color:'cat-color',spacing:'cat-spacing',hierarchy:'cat-hierarchy',balance:'cat-balance',pass:'cat-pass'};
+  const ord={critical:0,warning:1,info:2,pass:3};
+  const sorted=[...issues].sort((a,b)=>ord[a.severity]-ord[b.severity]);
+  $('issues-list').innerHTML=sorted.map((iss,idx)=>`<div class="issue-card" style="animation-delay:${idx*.05}s"><div class="issue-header"><div class="sev-dot sev-${iss.severity}"></div><span class="cat-badge ${catMap[iss.category]||'cat-contrast'}">${iss.cat_label}</span><div class="issue-title">${iss.title}</div><div class="issue-chevron">▼</div></div><div class="issue-body">${iss.data?`<div class="data-chips">${iss.data.map(d=>`<span class="data-chip">${d}</span>`).join('')}</div>`:''}<div class="issue-desc">${iss.desc}</div><div class="fix-box"><div class="fix-label">Saran Perbaikan</div><div class="fix-text">${iss.fix}</div></div></div></div>`).join('');
+  document.querySelectorAll('.issue-card').forEach(c=>c.querySelector('.issue-header').addEventListener('click',()=>c.classList.toggle('open')));
+  resultsSection.classList.add('visible');
+  resultsSection.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+$('recheck-btn').addEventListener('click',()=>{
+  resultsSection.classList.remove('visible');
+  fileInput.value='';currentFile=null;imgEl=null;
+  $('upload-placeholder').style.display='block';
+  $('preview-wrap').style.display='none';
+  uploadZone.classList.remove('has-file');
+  $('text-raw').style.display='none';
+  checkBtn.disabled=true;hideError();
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+</script>
+</body>
+</html>
